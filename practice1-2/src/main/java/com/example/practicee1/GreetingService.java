@@ -1,27 +1,48 @@
 package com.example.practicee1;
 
-import org.springframework.stereotype.Service;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 @Service
 public class GreetingService {
 
-    private final GreetingProperties greetingProperties;
+    private static final Logger log = LoggerFactory.getLogger(GreetingService.class);
 
-    public GreetingService(GreetingProperties greetingProperties) {
+    private final GreetingProperties greetingProperties;
+    private final Clock clock;
+    private final List<GreetingListener> listeners;
+
+    // Constructor injection: every dependency is explicit, final and supplied by the container
+    public GreetingService(GreetingProperties greetingProperties,
+                           Clock clock,
+                           List<GreetingListener> listeners) {
         this.greetingProperties = greetingProperties;
+        this.clock = clock;
+        this.listeners = listeners;
+        log.info("GreetingService created with {} greeting listener(s)", listeners.size());
     }
 
     public String greetByTime(String name) {
-        LocalDateTime now = LocalDateTime.now();
+        // Time comes from the injected clock, so tests can freeze it
+        LocalDateTime now = LocalDateTime.now(clock);
         int hour = now.getHour();
 
         String timeOfDay = getTimeOfDay(hour);
         String formattedTime = formatTime(now);
 
-        return "Hello " + name + ", " + timeOfDay + ", right now it's "
+        String greeting = "Hello " + name + ", " + timeOfDay + ", right now it's "
                 + formattedTime + " (server: " + greetingProperties.getDefaultName() + ")";
+
+        // Notify every registered listener; the list is empty when audit is disabled
+        listeners.forEach(listener -> listener.onGreeting(name));
+
+        return greeting;
     }
 
     private String getTimeOfDay(int hour) {
@@ -49,9 +70,8 @@ public class GreetingService {
 
         if (minute == 0) {
             return hour12 + period;
-        } else {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("h:mm");
-            return time.format(formatter) + period;
         }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("h:mm");
+        return time.format(formatter) + period;
     }
 }
