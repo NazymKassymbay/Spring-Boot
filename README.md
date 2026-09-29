@@ -2,6 +2,8 @@
 
 `practice1-2/` — greeting REST service (Practice 1–3)
 
+`online-shop/` — online shop REST API, the course project (SIS 1). See [online-shop/README.md](online-shop/README.md)
+
 ## Practice 3 — Dependency Injection and a conditional bean
 
 - All services use constructor injection with `private final` fields (no field `@Autowired`).

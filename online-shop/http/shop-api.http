@@ -1,0 +1,272 @@
+### Online shop API — IntelliJ HTTP Client collection (SIS 1)
+### Run the app with the dev profile first:  ./mvnw spring-boot:run
+### Select the "dev" environment in the editor toolbar, then run requests top to bottom.
+### Response ids are saved into variables (client.global.set), so later requests reuse them.
+
+############################## CATEGORIES ##############################
+
+### 1. List all categories -> 200
+GET {{baseUrl}}/categories
+
+### 2. Create a category -> 201 + Location header
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Headphones",
+  "description": "Wired and wireless headphones"
+}
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201));
+    client.global.set("categoryId", response.body.id);
+%}
+
+### 3. Get category by id -> 200
+GET {{baseUrl}}/categories/{{categoryId}}
+
+### 4. Update category -> 200
+PUT {{baseUrl}}/categories/{{categoryId}}
+Content-Type: application/json
+
+{
+  "name": "Audio",
+  "description": "Headphones, speakers and microphones"
+}
+
+### 5. Duplicate category name -> 409
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "audio"
+}
+
+### 6. Invalid category (blank name) -> 400 with violations
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": " "
+}
+
+### 7. Unknown category -> 404
+GET {{baseUrl}}/categories/9999
+
+############################## PRODUCTS ##############################
+
+### 8. Search products: filter, paging and sorting -> 200
+GET {{baseUrl}}/products?page=0&size=10&sort=price,desc
+
+### 9. Only products in stock, by text query and price range -> 200
+GET {{baseUrl}}/products?q=phone&inStock=true&minPrice=100000&maxPrice=500000
+
+### 10. Create product -> 201
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "sku": "AUD-SONY-XM5",
+  "name": "Sony WH-1000XM5",
+  "description": "Noise-cancelling wireless headphones",
+  "price": 159990.00,
+  "stockQuantity": 4,
+  "categoryId": {{categoryId}}
+}
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201));
+    client.global.set("productId", response.body.id);
+%}
+
+### 11. Get product by id -> 200
+GET {{baseUrl}}/products/{{productId}}
+
+### 12. Replace product (PUT) -> 200
+PUT {{baseUrl}}/products/{{productId}}
+Content-Type: application/json
+
+{
+  "sku": "AUD-SONY-XM5",
+  "name": "Sony WH-1000XM5 (black)",
+  "description": "Noise-cancelling wireless headphones, black",
+  "price": 149990.00,
+  "stockQuantity": 4,
+  "categoryId": {{categoryId}}
+}
+
+### 13. Stock arrived (+6) -> 200
+PATCH {{baseUrl}}/products/{{productId}}/stock
+Content-Type: application/json
+
+{
+  "delta": 6,
+  "reason": "Delivery from supplier"
+}
+
+### 14. Write-off below zero -> 422
+PATCH {{baseUrl}}/products/{{productId}}/stock
+Content-Type: application/json
+
+{
+  "delta": -1000,
+  "reason": "Inventory check"
+}
+
+### 15. Duplicate SKU -> 409
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "sku": "AUD-SONY-XM5",
+  "name": "Copy",
+  "price": 1.00,
+  "stockQuantity": 1,
+  "categoryId": {{categoryId}}
+}
+
+### 16. Invalid product body -> 400 with a violation per field
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "sku": "bad sku",
+  "name": "",
+  "price": -5,
+  "stockQuantity": -1
+}
+
+### 17. Category that does not exist -> 422
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "sku": "NO-CAT-1",
+  "name": "Orphan",
+  "price": 10.00,
+  "stockQuantity": 1,
+  "categoryId": 9999
+}
+
+### 18. Wrong parameter type / wrong sort field / bad paging -> 400
+GET {{baseUrl}}/products?minPrice=abc
+
+###
+GET {{baseUrl}}/products?sort=color
+
+###
+GET {{baseUrl}}/products?page=-1&size=500
+
+### 19. Category with products cannot be deleted -> 409
+DELETE {{baseUrl}}/categories/{{categoryId}}
+
+############################## ORDERS ##############################
+
+### 20. Create order -> 201 (stock is reserved)
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{
+  "customerName": "Nazym",
+  "customerEmail": "nazym@example.com",
+  "shippingAddress": "Almaty, Tole bi 59",
+  "items": [
+    { "productId": {{productId}}, "quantity": 2 },
+    { "productId": 3, "quantity": 1 }
+  ]
+}
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201));
+    client.global.set("orderId", response.body.id);
+%}
+
+### 21. Get order by id -> 200
+GET {{baseUrl}}/orders/{{orderId}}
+
+### 22. List orders with filters -> 200
+GET {{baseUrl}}/orders?status=NEW&customerEmail=nazym@example.com&page=0&size=5
+
+### 23. Not enough stock -> 422
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{
+  "customerName": "Aigerim",
+  "customerEmail": "aigerim@example.com",
+  "shippingAddress": "Astana, Mangilik El 55",
+  "items": [ { "productId": {{productId}}, "quantity": 100 } ]
+}
+
+### 24. Empty order / bad email -> 400
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{
+  "customerName": "Test",
+  "customerEmail": "not-an-email",
+  "shippingAddress": "Somewhere",
+  "items": []
+}
+
+### 25. Product in an active order cannot be deleted -> 409
+DELETE {{baseUrl}}/products/{{productId}}
+
+### 26. Pay the order: NEW -> PAID -> 200
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{ "status": "PAID" }
+
+### 27. Illegal jump PAID -> DELIVERED -> 409
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{ "status": "DELIVERED" }
+
+### 28. Unknown status value -> 400
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{ "status": "LOST" }
+
+### 29. Active order cannot be deleted -> 409
+DELETE {{baseUrl}}/orders/{{orderId}}
+
+### 30. Cancel order: PAID -> CANCELLED, stock goes back -> 200
+PATCH {{baseUrl}}/orders/{{orderId}}/status
+Content-Type: application/json
+
+{ "status": "CANCELLED" }
+
+### 31. Delete cancelled order -> 204
+DELETE {{baseUrl}}/orders/{{orderId}}
+
+### 32. Delete product -> 204, then category -> 204
+DELETE {{baseUrl}}/products/{{productId}}
+
+###
+DELETE {{baseUrl}}/categories/{{categoryId}}
+
+############################## HTTP-LEVEL ERRORS ##############################
+
+### 33. Malformed JSON -> 400
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{ "name": "Broken"
+
+### 34. Wrong Content-Type -> 415
+POST {{baseUrl}}/categories
+Content-Type: text/plain
+
+name=Books
+
+### 35. Method not allowed -> 405
+PUT {{baseUrl}}/orders/1
+Content-Type: application/json
+
+{}
+
+### 36. Unknown endpoint -> 404
+GET {{baseUrl}}/unknown
