@@ -14,8 +14,9 @@ public record PageResponse<T>(
 
     public static <S, T> PageResponse<T> of(List<S> all, int page, int size, Function<S, T> mapper) {
         int total = all.size();
-        int from = Math.min(page * size, total);
-        int to = Math.min(from + size, total);
+        // long arithmetic: page * size must not overflow int for huge page numbers
+        int from = (int) Math.min((long) page * size, total);
+        int to = (int) Math.min((long) from + size, total);
         List<T> content = all.subList(from, to).stream().map(mapper).toList();
         int totalPages = (int) Math.ceil((double) total / size);
         return new PageResponse<>(content, page, size, total, totalPages);

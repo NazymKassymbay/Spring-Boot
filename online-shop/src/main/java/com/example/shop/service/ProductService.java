@@ -99,14 +99,17 @@ public class ProductService {
         return toResponse(saved);
     }
 
+    // PUT replaces stockQuantity too, so it takes the same lock as orders and stock adjustments
     public ProductResponse update(Long id, ProductRequest request) {
-        Product product = getProduct(id);
-        ensureCategoryExists(request.categoryId());
-        ensureSkuIsFree(request.sku(), id);
+        synchronized (productRepository) {
+            Product product = getProduct(id);
+            ensureCategoryExists(request.categoryId());
+            ensureSkuIsFree(request.sku(), id);
 
-        productMapper.updateDomain(product, request);
-        product.setUpdatedAt(Instant.now(clock));
-        return toResponse(productRepository.save(product));
+            productMapper.updateDomain(product, request);
+            product.setUpdatedAt(Instant.now(clock));
+            return toResponse(productRepository.save(product));
+        }
     }
 
     // Stock is shared with OrderService, so changes are serialised on the repository

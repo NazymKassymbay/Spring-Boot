@@ -147,6 +147,20 @@ class ShopApiIntegrationTest {
                 .andExpect(status().isNoContent());
     }
 
+    @Test
+    void unsupportedAcceptHeaderReturns406InsteadOf500() throws Exception {
+        mockMvc.perform(get("/api/v1/categories").accept(MediaType.APPLICATION_XML))
+                .andExpect(status().isNotAcceptable())
+                .andExpect(jsonPath("$.status").value(406));
+    }
+
+    @Test
+    void hugePageNumberReturnsEmptyPageInsteadOf500() throws Exception {
+        mockMvc.perform(get("/api/v1/products").param("page", "30000000").param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)));
+    }
+
     private long createCategory(String name) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/categories")
                         .contentType(MediaType.APPLICATION_JSON)

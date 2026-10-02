@@ -9,9 +9,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -132,6 +134,14 @@ public class GlobalExceptionHandler {
                 List.of());
     }
 
+    // Client asked for a format we cannot produce (e.g. Accept: application/xml) -> 406, not 500
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ErrorResponse> handleNotAcceptable(HttpMediaTypeNotAcceptableException ex,
+                                                             HttpServletRequest request) {
+        return build(HttpStatus.NOT_ACCEPTABLE, "Only application/json responses are supported", request,
+                List.of());
+    }
+
     // ---- anything unexpected: log it, never leak internals to the client ----
 
     @ExceptionHandler(Exception.class)
@@ -153,6 +163,8 @@ public class GlobalExceptionHandler {
                 message,
                 request.getRequestURI(),
                 violations);
-        return ResponseEntity.status(status).body(body);
+        // Content type is set explicitly, so the error body is written as JSON even when the
+        // client's Accept header does not list JSON (otherwise a 406 would turn into a 500)
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(body);
     }
 }
