@@ -67,7 +67,7 @@ class ShopApiIntegrationTest {
     }
 
     @Test
-    void notEnoughStockReturns422AndReservesNothing() throws Exception {
+    void notEnoughStockReturns409AndReservesNothing() throws Exception {
         long categoryId = createCategory("Phones");
         long phone = createProduct("PHN-001", "300000.00", 10, categoryId);
         long rare = createProduct("PHN-002", "500000.00", 1, categoryId);
@@ -78,8 +78,8 @@ class ShopApiIntegrationTest {
                                 {"customerName":"A","customerEmail":"a@example.com","shippingAddress":"Astana",
                                  "items":[{"productId":%d,"quantity":2},{"productId":%d,"quantity":3}]}
                                 """.formatted(phone, rare)))
-                .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.status").value(422))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.message", containsString("Not enough stock")));
 
         mockMvc.perform(get("/api/v1/products/{id}", phone))

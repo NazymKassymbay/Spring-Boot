@@ -44,13 +44,13 @@ mapper: DTO <-> domain       config: ShopProperties, Clock, DemoDataLoader
 | DELETE | `/categories/{id}` | 204 | 404, 409 has products |
 | GET | `/products?categoryId&q&minPrice&maxPrice&inStock&page&size&sort=price,desc` | 200 | 400 |
 | GET | `/products/{id}` | 200 | 404 |
-| POST | `/products` | 201 + Location | 400, 409 duplicate SKU, 422 unknown category |
-| PUT | `/products/{id}` | 200 | 400, 404, 409, 422 |
-| PATCH | `/products/{id}/stock` | 200 | 400, 404, 422 stock below 0 |
+| POST | `/products` | 201 + Location | 400, 409 duplicate SKU or unknown category |
+| PUT | `/products/{id}` | 200 | 400, 404, 409 |
+| PATCH | `/products/{id}/stock` | 200 | 400, 404, 409 stock below 0 |
 | DELETE | `/products/{id}` | 204 | 404, 409 in an active order |
 | GET | `/orders?status&customerEmail&page&size` | 200 | 400 |
 | GET | `/orders/{id}` | 200 | 404 |
-| POST | `/orders` | 201 + Location | 400, 422 not enough stock / unknown product / too many products |
+| POST | `/orders` | 201 + Location | 400, 409 not enough stock / unknown product / too many products |
 | PATCH | `/orders/{id}/status` | 200 | 400, 404, 409 illegal transition |
 | DELETE | `/orders/{id}` | 204 | 404, 409 order still active |
 

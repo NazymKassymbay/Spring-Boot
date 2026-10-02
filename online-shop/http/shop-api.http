@@ -104,7 +104,7 @@ Content-Type: application/json
   "reason": "Delivery from supplier"
 }
 
-### 14. Write-off below zero -> 422
+### 14. Write-off below zero -> 409
 PATCH {{baseUrl}}/products/{{productId}}/stock
 Content-Type: application/json
 
@@ -136,7 +136,7 @@ Content-Type: application/json
   "stockQuantity": -1
 }
 
-### 17. Category that does not exist -> 422
+### 17. Category that does not exist -> 409
 POST {{baseUrl}}/products
 Content-Type: application/json
 
@@ -187,7 +187,7 @@ GET {{baseUrl}}/orders/{{orderId}}
 ### 22. List orders with filters -> 200
 GET {{baseUrl}}/orders?status=NEW&customerEmail=nazym@example.com&page=0&size=5
 
-### 23. Not enough stock -> 422
+### 23. Not enough stock -> 409
 POST {{baseUrl}}/orders
 Content-Type: application/json
 
