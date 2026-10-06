@@ -22,9 +22,6 @@ public class ShopProperties {
     @Max(100)
     private int maxItemsPerOrder = 20;
 
-    // Load a demo catalogue on start-up (enabled in the dev profile)
-    private boolean seedData;
-
     public String getCurrency() {
         return currency;
     }
@@ -39,13 +36,5 @@ public class ShopProperties {
 
     public void setMaxItemsPerOrder(int maxItemsPerOrder) {
         this.maxItemsPerOrder = maxItemsPerOrder;
-    }
-
-    public boolean isSeedData() {
-        return seedData;
-    }
-
-    public void setSeedData(boolean seedData) {
-        this.seedData = seedData;
     }
 }

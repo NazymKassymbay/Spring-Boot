@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -58,6 +59,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBusinessRule(BusinessRuleException ex, HttpServletRequest request) {
         // Course rule (week 4, slide 20): 400 for invalid input, 409 for business-rule conflicts
         return build(HttpStatus.CONFLICT, ex.getMessage(), request, List.of());
+    }
+
+    // A database constraint caught what the service checks missed, e.g. two requests creating the same SKU
+    // at the same moment: both pass the "is it free?" check, the unique index rejects the second insert
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex,
+                                                             HttpServletRequest request) {
+        log.warn("Constraint violation on {} {}: {}", request.getMethod(), request.getRequestURI(),
+                ex.getMostSpecificCause().getMessage());
+        return build(HttpStatus.CONFLICT, "Request conflicts with existing data", request, List.of());
     }
 
     @ExceptionHandler(BadRequestException.class)

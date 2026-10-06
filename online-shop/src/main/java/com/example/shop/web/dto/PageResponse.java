@@ -3,7 +3,9 @@ package com.example.shop.web.dto;
 import java.util.List;
 import java.util.function.Function;
 
-// Simple page wrapper; will map 1:1 onto Spring Data's Page once JPA is added
+import org.springframework.data.domain.Page;
+
+// Stable JSON shape for one page of results; Spring Data's Page itself is not exposed to clients
 public record PageResponse<T>(
         List<T> content,
         int page,
@@ -12,13 +14,12 @@ public record PageResponse<T>(
         int totalPages
 ) {
 
-    public static <S, T> PageResponse<T> of(List<S> all, int page, int size, Function<S, T> mapper) {
-        int total = all.size();
-        // long arithmetic: page * size must not overflow int for huge page numbers
-        int from = (int) Math.min((long) page * size, total);
-        int to = (int) Math.min((long) from + size, total);
-        List<T> content = all.subList(from, to).stream().map(mapper).toList();
-        int totalPages = (int) Math.ceil((double) total / size);
-        return new PageResponse<>(content, page, size, total, totalPages);
+    public static <S, T> PageResponse<T> of(Page<S> page, Function<S, T> mapper) {
+        return new PageResponse<>(
+                page.getContent().stream().map(mapper).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages());
     }
 }

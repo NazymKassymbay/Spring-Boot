@@ -2,16 +2,28 @@ package com.example.shop.domain;
 
 import java.math.BigDecimal;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+
 // One line of an order. Name and price are copied from the product at order time,
 // so later price changes or product deletion do not rewrite order history.
+// Stored as a value of its order (table order_items), it has no identity of its own.
+@Embeddable
 public class OrderItem {
 
+    @Column(nullable = false)
     private Long productId;
+
+    @Column(nullable = false, length = 150)
     private String productName;
+
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
+
+    @Column(nullable = false)
     private int quantity;
 
-    public OrderItem() {
+    protected OrderItem() {
     }
 
     public OrderItem(Long productId, String productName, BigDecimal unitPrice, int quantity) {

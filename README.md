@@ -2,7 +2,7 @@
 
 `practice1-2/` — greeting REST service (Practice 1–3)
 
-`online-shop/` — online shop REST API, the course project (SIS 1). See [online-shop/README.md](online-shop/README.md)
+`online-shop/` — online shop REST API, the course project (SIS 1, Practice 4: PostgreSQL, Spring Data JPA, Flyway). See [online-shop/README.md](online-shop/README.md)
 
 ## Practice 3 — Dependency Injection and a conditional bean
 

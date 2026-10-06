@@ -5,20 +5,56 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.Table;
+
 import com.example.shop.exception.InvalidOrderStatusException;
 
+// "order" is a reserved word in SQL, hence the table name "orders"
+@Entity
+@Table(name = "orders")
 public class Order {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false, length = 100)
     private String customerName;
+
+    @Column(nullable = false, length = 254)
     private String customerEmail;
+
+    @Column(nullable = false, length = 300)
     private String shippingAddress;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
     private OrderStatus status = OrderStatus.NEW;
+
+    // Lines keep the order in which they were added (line_no); loaded in batches to avoid N+1 on order lists
+    @ElementCollection
+    @CollectionTable(name = "order_items", joinColumns = @JoinColumn(name = "order_id"))
+    @OrderColumn(name = "line_no")
     private List<OrderItem> items = new ArrayList<>();
+
+    @Column(nullable = false)
     private Instant createdAt;
+
+    @Column(nullable = false)
     private Instant updatedAt;
 
-    public Order() {
+    protected Order() {
     }
 
     public Order(String customerName, String customerEmail, String shippingAddress) {

@@ -6,7 +6,9 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.shop.domain.Category;
 import com.example.shop.exception.ConflictException;
@@ -18,6 +20,7 @@ import com.example.shop.web.dto.CategoryRequest;
 import com.example.shop.web.dto.CategoryResponse;
 
 @Service
+@Transactional
 public class CategoryService {
 
     private static final Logger log = LoggerFactory.getLogger(CategoryService.class);
@@ -37,12 +40,14 @@ public class CategoryService {
         this.clock = clock;
     }
 
+    @Transactional(readOnly = true)
     public List<CategoryResponse> findAll() {
-        return categoryRepository.findAll().stream()
+        return categoryRepository.findAll(Sort.by("id")).stream()
                 .map(this::toResponse)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public CategoryResponse findById(Long id) {
         return toResponse(getCategory(id));
     }
@@ -76,7 +81,7 @@ public class CategoryService {
             throw new ConflictException("Category " + id + " still has " + products
                     + " product(s); move or delete them first");
         }
-        categoryRepository.deleteById(category.getId());
+        categoryRepository.delete(category);
         log.info("Category deleted: id={}", id);
     }
 

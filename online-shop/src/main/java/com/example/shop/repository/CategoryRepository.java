@@ -1,21 +1,13 @@
 package com.example.shop.repository;
 
-import java.util.List;
 import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.example.shop.domain.Category;
 
-public interface CategoryRepository {
-
-    Category save(Category category);
-
-    Optional<Category> findById(Long id);
-
-    List<Category> findAll();
+// Spring Data JPA generates the implementation; method names below become SQL (derived queries)
+public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     Optional<Category> findByNameIgnoreCase(String name);
-
-    boolean existsById(Long id);
-
-    void deleteById(Long id);
 }

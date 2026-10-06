@@ -1,16 +1,48 @@
-# Online Shop API — course project (SIS 1)
+# Online Shop API — course project (SIS 1, Practice 4)
 
 REST backend of a small online shop: categories, products with stock, and orders with a status life cycle.
-Spring Boot 4.1 · Java 17 · Maven. Storage is in-memory for now; PostgreSQL + JPA replace it in Practice 4.
+Spring Boot 4.1 · Java 17 · Maven · PostgreSQL · Spring Data JPA · Flyway.
 
 ## Run
 
+1. Start PostgreSQL (once; the data is kept in the container between restarts):
+
+```bash
+docker run -d --name shop-db -p 5432:5432 \
+  -e POSTGRES_DB=online_shop -e POSTGRES_USER=shop -e POSTGRES_PASSWORD=shop \
+  postgres:16-alpine
+```
+
+2. Start the application:
+
 ```bash
 cd online-shop
-./mvnw spring-boot:run                                   # dev profile: demo catalogue is loaded
-./mvnw spring-boot:run -Dspring-boot.run.profiles=prod   # empty store, quiet logs
-./mvnw test                                              # integration tests (test profile)
+./mvnw spring-boot:run                                   # dev profile: schema + demo catalogue
+DB_URL=jdbc:postgresql://host:5432/db DB_USERNAME=... DB_PASSWORD=... \
+  ./mvnw spring-boot:run -Dspring-boot.run.profiles=prod # prod: schema only, settings from env
+./mvnw test                                              # integration tests, need Docker running
 ```
+
+The default connection is `jdbc:postgresql://localhost:5432/online_shop`, user `shop`, password `shop`;
+`DB_URL`, `DB_USERNAME` and `DB_PASSWORD` override it. The prod profile has no defaults.
+Tests start their own PostgreSQL in Docker with Testcontainers, so they never touch the dev database.
+
+## Database
+
+The schema is owned by Flyway; Hibernate only validates the entities against it (`ddl-auto=validate`).
+
+| Migration | Location | Applied in |
+|---|---|---|
+| `V1__create_schema.sql` — tables, foreign keys, unique and check constraints, indexes | `db/migration` | all profiles |
+| `V2__seed_demo_catalogue.sql` — 3 categories, 5 products | `db/seed` | dev only |
+
+A schema change is always a new file (`V3__...`); an applied migration is never edited.
+To start from an empty database: `docker rm -f shop-db` and run the `docker run` command again.
+
+- Product lists are filtered, sorted and paged by PostgreSQL (`Specification` + `Pageable`), and the
+  category is fetched in the same query (`@EntityGraph`), so there is no N+1.
+- Every service method runs in a transaction. Stock changes lock the product rows
+  (`SELECT ... FOR UPDATE`) in ascending id order, so parallel orders never oversell and never deadlock.
 
 ### Maven build profiles
 
@@ -20,17 +52,17 @@ so the built jar starts with the matching Spring profile.
 | Command | Spring profile | Behaviour |
 |---|---|---|
 | `./mvnw package` | `dev` (default) | demo data, DEBUG logs |
-| `./mvnw package -Ptest` | `test` | empty store, max 5 products per order |
-| `./mvnw package -Pprod` | `prod` | empty store, WARN logs, jar named `online-shop.jar` |
+| `./mvnw package -Ptest` | `test` | no demo data, max 5 products per order |
+| `./mvnw package -Pprod` | `prod` | no demo data, DB settings from env, WARN logs, jar named `online-shop.jar` |
 
 ## Layers
 
 ```
 web (controllers, DTOs, GlobalExceptionHandler)
-  -> service (business rules)
-    -> repository (interfaces; in-memory implementations)
-      -> domain (Category, Product, Order, OrderItem, OrderStatus)
-mapper: DTO <-> domain       config: ShopProperties, Clock, DemoDataLoader
+  -> service (business rules, transactions)
+    -> repository (Spring Data JPA interfaces)
+      -> domain (JPA entities: Category, Product, Order; OrderItem is an embedded value)
+mapper: DTO <-> domain       config: ShopProperties, Clock
 ```
 
 ## Endpoints (`/api/v1`)
@@ -86,4 +118,5 @@ Every error, including validation, 404 of unknown URLs, 405 and 415, has the sam
 
 `http/shop-api.http` covers every endpoint plus the error cases (36 requests).
 Open it in IntelliJ IDEA, choose the `dev` environment from `http/http-client.env.json` and run the requests top to bottom.
-Created ids are saved into variables automatically.
+Created ids are saved into variables automatically. Run it against a fresh dev database:
+request 20 uses product `3` from the demo catalogue.

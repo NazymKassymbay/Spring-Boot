@@ -10,27 +10,47 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.jayway.jsonpath.JsonPath;
 
-// End-to-end check of the main business flow through the real HTTP layer
+// End-to-end check of the main business flow through the real HTTP layer and a real PostgreSQL.
+// The database is started in Docker once per class; Flyway creates the schema exactly as in production.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@Testcontainers
 class ShopApiIntegrationTest {
+
+    // @ServiceConnection points spring.datasource.* at this container
+    @Container
+    @ServiceConnection
+    static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    // Every test starts with empty tables and ids from 1
+    @BeforeEach
+    void cleanDatabase() {
+        jdbcTemplate.execute("TRUNCATE order_items, orders, products, categories RESTART IDENTITY CASCADE");
+    }
 
     @Test
     void orderReservesStockAndCancellationReturnsIt() throws Exception {
@@ -159,6 +179,41 @@ class ShopApiIntegrationTest {
         mockMvc.perform(get("/api/v1/products").param("page", "30000000").param("size", "100"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(0)));
+    }
+
+    @Test
+    void productsAreFilteredSortedAndPagedByTheDatabase() throws Exception {
+        long books = createCategory("Books");
+        long other = createCategory("Other");
+        createProduct("BK-001", "3000.00", 1, books);
+        createProduct("BK-002", "1000.00", 0, books);
+        createProduct("BK-003", "2000.00", 4, books);
+        createProduct("OT-001", "500.00", 9, other);
+
+        mockMvc.perform(get("/api/v1/products")
+                        .param("categoryId", String.valueOf(books))
+                        .param("sort", "price,desc")
+                        .param("page", "0")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[0].sku").value("BK-001"))
+                .andExpect(jsonPath("$.content[1].sku").value("BK-003"))
+                .andExpect(jsonPath("$.content[0].categoryName").value("Books"));
+
+        mockMvc.perform(get("/api/v1/products")
+                        .param("categoryId", String.valueOf(books))
+                        .param("sort", "price,desc")
+                        .param("page", "1")
+                        .param("size", "2"))
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].sku").value("BK-002"));
+
+        mockMvc.perform(get("/api/v1/products").param("q", "bk-00").param("inStock", "true").param("maxPrice", "2500"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].sku").value("BK-003"));
     }
 
     private long createCategory(String name) throws Exception {

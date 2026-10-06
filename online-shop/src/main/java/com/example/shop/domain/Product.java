@@ -3,31 +3,63 @@ package com.example.shop.domain;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
 import com.example.shop.exception.InsufficientStockException;
 
 // A product that can be ordered. Stock changes go only through reserve/release so the rules live in one place.
+@Entity
+@Table(name = "products")
 public class Product {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false, length = 32)
     private String sku;
+
+    @Column(nullable = false, length = 150)
     private String name;
+
+    @Column(length = 2000)
     private String description;
+
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
+
+    @Column(nullable = false)
     private int stockQuantity;
-    private Long categoryId;
+
+    // LAZY: the category is loaded only when it is needed (list queries fetch it with an entity graph)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
+
+    @Column(nullable = false)
     private Instant createdAt;
+
+    @Column(nullable = false)
     private Instant updatedAt;
 
-    public Product() {
+    protected Product() {
     }
 
-    public Product(String sku, String name, String description, BigDecimal price, int stockQuantity, Long categoryId) {
+    public Product(String sku, String name, String description, BigDecimal price, int stockQuantity, Category category) {
         this.sku = sku;
         this.name = name;
         this.description = description;
         this.price = price;
         this.stockQuantity = stockQuantity;
-        this.categoryId = categoryId;
+        this.category = category;
     }
 
     // Takes items out of stock for an order; fails if there are not enough of them
@@ -101,12 +133,12 @@ public class Product {
         this.stockQuantity = stockQuantity;
     }
 
-    public Long getCategoryId() {
-        return categoryId;
+    public Category getCategory() {
+        return category;
     }
 
-    public void setCategoryId(Long categoryId) {
-        this.categoryId = categoryId;
+    public void setCategory(Category category) {
+        this.category = category;
     }
 
     public Instant getCreatedAt() {

@@ -17,26 +17,28 @@ public class ProductMapper {
         this.shopProperties = shopProperties;
     }
 
-    public Product toDomain(ProductRequest request) {
+    public Product toDomain(ProductRequest request, Category category) {
         return new Product(
                 request.sku(),
                 request.name().trim(),
                 request.description(),
                 request.price(),
                 request.stockQuantity(),
-                request.categoryId());
+                category);
     }
 
-    public void updateDomain(Product product, ProductRequest request) {
+    public void updateDomain(Product product, ProductRequest request, Category category) {
         product.setSku(request.sku());
         product.setName(request.name().trim());
         product.setDescription(request.description());
         product.setPrice(request.price());
         product.setStockQuantity(request.stockQuantity());
-        product.setCategoryId(request.categoryId());
+        product.setCategory(category);
     }
 
-    public ProductResponse toResponse(Product product, Category category) {
+    // Reads the lazy category, so it must be called inside the service transaction
+    public ProductResponse toResponse(Product product) {
+        Category category = product.getCategory();
         return new ProductResponse(
                 product.getId(),
                 product.getSku(),
@@ -46,8 +48,8 @@ public class ProductMapper {
                 shopProperties.getCurrency(),
                 product.getStockQuantity(),
                 product.isInStock(),
-                product.getCategoryId(),
-                category != null ? category.getName() : null,
+                category.getId(),
+                category.getName(),
                 product.getCreatedAt(),
                 product.getUpdatedAt());
     }
