@@ -3,10 +3,10 @@ package com.example.shop.web;
 import java.net.URI;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -38,14 +38,12 @@ public class OrderController {
         this.orderService = orderService;
     }
 
-    // Newest orders first; optional filters by status and customer email
+    // GET /api/v1/orders?status=NEW&page=0&size=10 — newest orders first unless sort is given
     @GetMapping
-    public PageResponse<OrderResponse> search(
+    public PageResponse<OrderResponse> findAll(
             @RequestParam(required = false) OrderStatus status,
-            @RequestParam(required = false) @Email(message = "customerEmail must be a valid email") String customerEmail,
-            @RequestParam(defaultValue = "0") @Min(value = 0, message = "page must be 0 or more") int page,
-            @RequestParam(defaultValue = "20") @Min(value = 1, message = "size must be 1-100") @Max(value = 100, message = "size must be 1-100") int size) {
-        return orderService.search(status, customerEmail, page, size);
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return orderService.findAll(status, pageable);
     }
 
     @GetMapping("/{id}")

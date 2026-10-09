@@ -1,11 +1,11 @@
 package com.example.shop.web.dto;
 
 import java.util.List;
-import java.util.function.Function;
 
 import org.springframework.data.domain.Page;
 
-// Stable JSON shape for one page of results; Spring Data's Page itself is not exposed to clients
+// Our own JSON shape for one page of results (lecture week 5, slide 27: "PagedModel or your own DTO").
+// Spring Data's Page is not returned directly, because its JSON shape is not a stable API.
 public record PageResponse<T>(
         List<T> content,
         int page,
@@ -14,9 +14,9 @@ public record PageResponse<T>(
         int totalPages
 ) {
 
-    public static <S, T> PageResponse<T> of(Page<S> page, Function<S, T> mapper) {
+    public static <T> PageResponse<T> from(Page<T> page) {
         return new PageResponse<>(
-                page.getContent().stream().map(mapper).toList(),
+                page.getContent(),
                 page.getNumber(),
                 page.getSize(),
                 page.getTotalElements(),

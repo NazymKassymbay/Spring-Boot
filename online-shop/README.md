@@ -36,13 +36,20 @@ The schema is owned by Flyway; Hibernate only validates the entities against it 
 | `V1__create_schema.sql` — tables, foreign keys, unique and check constraints, indexes | `db/migration` | all profiles |
 | `V2__seed_demo_catalogue.sql` — 3 categories, 5 products | `db/seed` | dev only |
 
-A schema change is always a new file (`V3__...`); an applied migration is never edited.
+From now on a schema change is always a new file (`V3__...`); an applied migration is never edited.
 To start from an empty database: `docker rm -f shop-db` and run the `docker run` command again.
 
-- Product lists are filtered, sorted and paged by PostgreSQL (`Specification` + `Pageable`), and the
-  category is fetched in the same query (`@EntityGraph`), so there is no N+1.
-- Every service method runs in a transaction. Stock changes lock the product rows
-  (`SELECT ... FOR UPDATE`) in ascending id order, so parallel orders never oversell and never deadlock.
+## Persistence (Practice 4)
+
+| Topic | How it is done |
+|---|---|
+| Entities | `Category`, `Product`, `Order`, `OrderItem`; every association is `LAZY`; ids are `IDENTITY` columns |
+| Relationships | `Product *→1 Category` (`@ManyToOne`), `Order 1→* OrderItem` (`@OneToMany(mappedBy, cascade = ALL)`) |
+| Repositories | Spring Data `JpaRepository`; derived queries (`findByCategoryId`, `findBySkuIgnoreCase`, `findByStatus`) and JPQL `@Query` (`findByIdWithCategory`, `existsByStatusInAndProductId`) |
+| Paging | `GET /products` and `GET /orders` take `Pageable` (`page`, `size`, `sort`); size is capped at 100 |
+| Transactions | `@Transactional` on every service; `readOnly = true` for reads; a runtime exception rolls everything back |
+| Concurrency | `@Version` on `Product` and `Order` (optimistic locking): a lost update becomes `409 Conflict` |
+| Settings | `ddl-auto=validate`, `open-in-view=false`, password from the `DB_PASSWORD` env variable |
 
 ### Maven build profiles
 
@@ -61,7 +68,7 @@ so the built jar starts with the matching Spring profile.
 web (controllers, DTOs, GlobalExceptionHandler)
   -> service (business rules, transactions)
     -> repository (Spring Data JPA interfaces)
-      -> domain (JPA entities: Category, Product, Order; OrderItem is an embedded value)
+      -> domain (JPA entities: Category, Product, Order, OrderItem)
 mapper: DTO <-> domain       config: ShopProperties, Clock
 ```
 
@@ -74,22 +81,21 @@ mapper: DTO <-> domain       config: ShopProperties, Clock
 | POST | `/categories` | 201 + Location | 400, 409 duplicate name |
 | PUT | `/categories/{id}` | 200 | 400, 404, 409 |
 | DELETE | `/categories/{id}` | 204 | 404, 409 has products |
-| GET | `/products?categoryId&q&minPrice&maxPrice&inStock&page&size&sort=price,desc` | 200 | 400 |
+| GET | `/products?categoryId&page&size&sort=price,desc` | 200 | 400 unknown sort field |
 | GET | `/products/{id}` | 200 | 404 |
 | POST | `/products` | 201 + Location | 400, 409 duplicate SKU or unknown category |
 | PUT | `/products/{id}` | 200 | 400, 404, 409 |
 | PATCH | `/products/{id}/stock` | 200 | 400, 404, 409 stock below 0 |
 | DELETE | `/products/{id}` | 204 | 404, 409 in an active order |
-| GET | `/orders?status&customerEmail&page&size` | 200 | 400 |
+| GET | `/orders?status&page&size&sort` | 200 | 400 |
 | GET | `/orders/{id}` | 200 | 404 |
-| POST | `/orders` | 201 + Location | 400, 409 not enough stock / unknown product / too many products |
+| POST | `/orders` | 201 + Location | 400, 409 not enough stock / unknown product / too many lines |
 | PATCH | `/orders/{id}/status` | 200 | 400, 404, 409 illegal transition |
 | DELETE | `/orders/{id}` | 204 | 404, 409 order still active |
 
 ### Business rules
 
 - Creating an order reserves stock for all lines at once. If any line lacks stock, nothing is reserved.
-- The same product listed twice in one order is merged into one line.
 - Order price and product name are copied at order time, so later price changes do not alter history.
 - Status flow: `NEW → PAID → SHIPPED → DELIVERED`. `NEW` and `PAID` orders can become `CANCELLED`, which returns stock.
 - Only `CANCELLED` or `DELIVERED` orders can be deleted. Products in `NEW`/`PAID` orders cannot be deleted.
@@ -97,7 +103,7 @@ mapper: DTO <-> domain       config: ShopProperties, Clock
 
 ## Error format
 
-Every error, including validation, 404 of unknown URLs, 405 and 415, has the same body:
+Every error, including validation, 404 of unknown URLs, 405, 406 and 415, has the same body:
 
 ```json
 {
@@ -116,7 +122,7 @@ Every error, including validation, 404 of unknown URLs, 405 and 415, has the sam
 
 ## HTTP client collection
 
-`http/shop-api.http` covers every endpoint plus the error cases (36 requests).
+`http/shop-api.http` covers every endpoint plus the error cases (37 requests).
 Open it in IntelliJ IDEA, choose the `dev` environment from `http/http-client.env.json` and run the requests top to bottom.
 Created ids are saved into variables automatically. Run it against a fresh dev database:
 request 20 uses product `3` from the demo catalogue.

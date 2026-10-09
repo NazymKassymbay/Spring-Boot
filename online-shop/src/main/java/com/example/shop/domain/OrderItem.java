@@ -3,14 +3,31 @@ package com.example.shop.domain;
 import java.math.BigDecimal;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 // One line of an order. Name and price are copied from the product at order time,
 // so later price changes or product deletion do not rewrite order history.
-// Stored as a value of its order (table order_items), it has no identity of its own.
-@Embeddable
+@Entity
+@Table(name = "order_items")
 public class OrderItem {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    // Owning side of Order 1 -> * OrderItem: this field holds the foreign key order_id
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false)
+    private Order order;
+
+    // A plain id, not @ManyToOne: the line must survive deletion of the product
     @Column(nullable = false)
     private Long productId;
 
@@ -37,35 +54,31 @@ public class OrderItem {
         return unitPrice.multiply(BigDecimal.valueOf(quantity));
     }
 
-    public Long getProductId() {
-        return productId;
+    public Long getId() {
+        return id;
     }
 
-    public void setProductId(Long productId) {
-        this.productId = productId;
+    public Order getOrder() {
+        return order;
+    }
+
+    public void setOrder(Order order) {
+        this.order = order;
+    }
+
+    public Long getProductId() {
+        return productId;
     }
 
     public String getProductName() {
         return productName;
     }
 
-    public void setProductName(String productName) {
-        this.productName = productName;
-    }
-
     public BigDecimal getUnitPrice() {
         return unitPrice;
     }
 
-    public void setUnitPrice(BigDecimal unitPrice) {
-        this.unitPrice = unitPrice;
-    }
-
     public int getQuantity() {
         return quantity;
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
     }
 }

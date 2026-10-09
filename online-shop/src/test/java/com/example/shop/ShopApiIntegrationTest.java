@@ -67,8 +67,8 @@ class ShopApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", containsString("/api/v1/orders/")))
                 .andExpect(jsonPath("$.status").value("NEW"))
-                .andExpect(jsonPath("$.items", hasSize(1)))
-                .andExpect(jsonPath("$.items[0].quantity").value(3))
+                .andExpect(jsonPath("$.items", hasSize(2)))
+                .andExpect(jsonPath("$.totalQuantity").value(3))
                 .andExpect(jsonPath("$.totalAmount").value(450000.00))
                 .andReturn();
         long orderId = idOf(orderResult);
@@ -175,10 +175,21 @@ class ShopApiIntegrationTest {
     }
 
     @Test
-    void hugePageNumberReturnsEmptyPageInsteadOf500() throws Exception {
+    void hugePageNumberReturns400InsteadOf500() throws Exception {
         mockMvc.perform(get("/api/v1/products").param("page", "30000000").param("size", "100"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("page is too large"));
+    }
+
+    @Test
+    void unknownSortFieldReturns400AndPageSizeIsCapped() throws Exception {
+        mockMvc.perform(get("/api/v1/products").param("sort", "password"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        mockMvc.perform(get("/api/v1/products").param("size", "500"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content", hasSize(0)));
+                .andExpect(jsonPath("$.size").value(100));
     }
 
     @Test
@@ -211,9 +222,8 @@ class ShopApiIntegrationTest {
                 .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.content[0].sku").value("BK-002"));
 
-        mockMvc.perform(get("/api/v1/products").param("q", "bk-00").param("inStock", "true").param("maxPrice", "2500"))
-                .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.content[0].sku").value("BK-003"));
+        mockMvc.perform(get("/api/v1/products"))
+                .andExpect(jsonPath("$.totalElements").value(4));
     }
 
     private long createCategory(String name) throws Exception {

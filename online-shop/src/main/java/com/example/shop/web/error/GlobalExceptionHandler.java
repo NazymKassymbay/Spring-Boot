@@ -9,6 +9,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -69,6 +71,23 @@ public class GlobalExceptionHandler {
         log.warn("Constraint violation on {} {}: {}", request.getMethod(), request.getRequestURI(),
                 ex.getMostSpecificCause().getMessage());
         return build(HttpStatus.CONFLICT, "Request conflicts with existing data", request, List.of());
+    }
+
+    // @Version check failed: someone else changed the same row between our read and our write
+    // (lecture week 5, slide 19: "the loser of the race ... -> rollback -> 409")
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(OptimisticLockingFailureException ex,
+                                                              HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "The data was changed by another request; please try again",
+                request, List.of());
+    }
+
+    // ?sort=password: the entity has no such field (lecture week 5, slide 27: map it to 400)
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ErrorResponse> handleUnknownSortField(PropertyReferenceException ex,
+                                                                HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Unknown sort field '" + ex.getPropertyName() + "'", request,
+                List.of());
     }
 
     @ExceptionHandler(BadRequestException.class)

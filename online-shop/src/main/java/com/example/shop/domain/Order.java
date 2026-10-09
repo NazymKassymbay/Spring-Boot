@@ -5,18 +5,18 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import jakarta.persistence.CollectionTable;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OrderColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import com.example.shop.exception.InvalidOrderStatusException;
 
@@ -42,11 +42,15 @@ public class Order {
     @Column(nullable = false, length = 20)
     private OrderStatus status = OrderStatus.NEW;
 
-    // Lines keep the order in which they were added (line_no); loaded in batches to avoid N+1 on order lists
-    @ElementCollection
-    @CollectionTable(name = "order_items", joinColumns = @JoinColumn(name = "order_id"))
-    @OrderColumn(name = "line_no")
+    // mappedBy side: OrderItem.order owns the foreign key. Lines live and die with their order
+    // (cascade ALL + orphanRemoval), so saving or deleting the order saves or deletes its lines too.
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id")
     private List<OrderItem> items = new ArrayList<>();
+
+    // Optimistic lock: two parallel status changes of one order -> the second one gets 409
+    @Version
+    private long version;
 
     @Column(nullable = false)
     private Instant createdAt;
@@ -63,8 +67,10 @@ public class Order {
         this.shippingAddress = shippingAddress;
     }
 
+    // Keeps both sides in sync: without item.setOrder(this) the order_id column would stay empty
     public void addItem(OrderItem item) {
         items.add(item);
+        item.setOrder(this);
     }
 
     public BigDecimal getTotalAmount() {
@@ -127,10 +133,6 @@ public class Order {
 
     public List<OrderItem> getItems() {
         return items;
-    }
-
-    public void setItems(List<OrderItem> items) {
-        this.items = items;
     }
 
     public Instant getCreatedAt() {

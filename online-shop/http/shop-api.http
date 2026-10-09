@@ -55,11 +55,11 @@ GET {{baseUrl}}/categories/9999
 
 ############################## PRODUCTS ##############################
 
-### 8. Search products: filter, paging and sorting -> 200
+### 8. Products: paging and sorting -> 200
 GET {{baseUrl}}/products?page=0&size=10&sort=price,desc
 
-### 9. Only products in stock, by text query and price range -> 200
-GET {{baseUrl}}/products?q=phone&inStock=true&minPrice=100000&maxPrice=500000
+### 9. Products of one category (demo category 1 = Laptops) -> 200
+GET {{baseUrl}}/products?categoryId=1&sort=name
 
 ### 10. Create product -> 201
 POST {{baseUrl}}/products
@@ -148,14 +148,17 @@ Content-Type: application/json
   "categoryId": 9999
 }
 
-### 18. Wrong parameter type / wrong sort field / bad paging -> 400
-GET {{baseUrl}}/products?minPrice=abc
+### 18. Wrong parameter type / unknown sort field / page too large -> 400
+GET {{baseUrl}}/products?categoryId=abc
 
 ###
 GET {{baseUrl}}/products?sort=color
 
 ###
-GET {{baseUrl}}/products?page=-1&size=500
+GET {{baseUrl}}/products?page=30000000&size=100
+
+### 18a. size=500 is capped to 100 -> 200, "size": 100
+GET {{baseUrl}}/products?size=500
 
 ### 19. Category with products cannot be deleted -> 409
 DELETE {{baseUrl}}/categories/{{categoryId}}
@@ -184,8 +187,8 @@ Content-Type: application/json
 ### 21. Get order by id -> 200
 GET {{baseUrl}}/orders/{{orderId}}
 
-### 22. List orders with filters -> 200
-GET {{baseUrl}}/orders?status=NEW&customerEmail=nazym@example.com&page=0&size=5
+### 22. List orders with a status filter, newest first -> 200
+GET {{baseUrl}}/orders?status=NEW&page=0&size=5
 
 ### 23. Not enough stock -> 409
 POST {{baseUrl}}/orders

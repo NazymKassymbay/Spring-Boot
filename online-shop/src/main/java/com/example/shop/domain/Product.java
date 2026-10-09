@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import com.example.shop.exception.InsufficientStockException;
 
@@ -43,6 +44,12 @@ public class Product {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+    // Optimistic lock (lecture week 5, slide 19). Hibernate writes
+    // UPDATE ... SET stock_quantity = ?, version = 6 WHERE id = ? AND version = 5.
+    // If another transaction changed the row first, 0 rows match -> exception -> rollback -> 409.
+    @Version
+    private long version;
 
     @Column(nullable = false)
     private Instant createdAt;

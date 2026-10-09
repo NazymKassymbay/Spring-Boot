@@ -1,14 +1,11 @@
 package com.example.shop.web;
 
-import java.math.BigDecimal;
 import java.net.URI;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Size;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,7 +21,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.example.shop.service.ProductFilter;
 import com.example.shop.service.ProductService;
 import com.example.shop.web.dto.PageResponse;
 import com.example.shop.web.dto.ProductRequest;
@@ -41,19 +37,14 @@ public class ProductController {
         this.productService = productService;
     }
 
-    // GET /api/v1/products?categoryId=1&q=phone&minPrice=100&maxPrice=500&inStock=true&page=0&size=10&sort=price,desc
+    // GET /api/v1/products?categoryId=1&page=0&size=10&sort=price,desc
+    // Spring builds the Pageable from page, size and sort. Pages start at 0;
+    // size is capped at 100 by spring.data.web.pageable.max-page-size.
     @GetMapping
-    public PageResponse<ProductResponse> search(
+    public PageResponse<ProductResponse> findAll(
             @RequestParam(required = false) Long categoryId,
-            @RequestParam(name = "q", required = false) @Size(max = 100, message = "q must be at most 100 characters") String query,
-            @RequestParam(required = false) @DecimalMin(value = "0", message = "minPrice must be 0 or more") BigDecimal minPrice,
-            @RequestParam(required = false) @DecimalMin(value = "0", message = "maxPrice must be 0 or more") BigDecimal maxPrice,
-            @RequestParam(required = false) Boolean inStock,
-            @RequestParam(defaultValue = "0") @Min(value = 0, message = "page must be 0 or more") int page,
-            @RequestParam(defaultValue = "20") @Min(value = 1, message = "size must be 1-100") @Max(value = 100, message = "size must be 1-100") int size,
-            @RequestParam(required = false) String sort) {
-        ProductFilter filter = new ProductFilter(categoryId, query, minPrice, maxPrice, inStock);
-        return productService.search(filter, page, size, sort);
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        return productService.findAll(categoryId, pageable);
     }
 
     @GetMapping("/{id}")
