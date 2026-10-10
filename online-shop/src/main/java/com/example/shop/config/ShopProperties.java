@@ -17,7 +17,7 @@ public class ShopProperties {
     @Pattern(regexp = "^[A-Z]{3}$", message = "currency must be an ISO-4217 code, e.g. KZT")
     private String currency = "KZT";
 
-    // Upper limit for the number of distinct products in one order
+    // Upper limit for the number of lines in one order
     @Min(1)
     @Max(100)
     private int maxItemsPerOrder = 20;
