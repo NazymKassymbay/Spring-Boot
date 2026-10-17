@@ -126,3 +126,57 @@ Every error, including validation, 404 of unknown URLs, 405, 406 and 415, has th
 Open it in IntelliJ IDEA, choose the `dev` environment from `http/http-client.env.json` and run the requests top to bottom.
 Created ids are saved into variables automatically. Run it against a fresh dev database:
 request 20 uses product `3` from the demo catalogue.
+
+## SIS 2: layered architecture and tests
+
+The project is split **by feature**, with layers inside each feature (lecture weeks 6-7, slides 25-27).
+
+```
+com.example.shop
+├── category        CRUD only, so simply layered: the JPA entity is the model
+│                   Category, CategoryRepository, CategoryService, CategoryController, CategoryMapper
+├── product         real rules (stock, price), so ports and adapters
+│   ├── domain      Product (aggregate), CategoryRef (value object), ProductRepository (port). No Spring, no JPA
+│   ├── app         ProductService (use cases), ProductQueries, CategoryCatalog, ProductUsage (ports)
+│   ├── infra       ProductEntity, SpringDataProducts, JpaProductRepository, ProductEntityMapper, adapters
+│   └── web         ProductController, request/response records, ProductApiMapper
+├── order           real rules (status life cycle, stock reservation), so ports and adapters
+│   ├── domain      Order (aggregate), OrderLine (value object), OrderStatus, OrderRepository (port)
+│   ├── app         OrderService (use cases), Inventory, OrderQueries (ports)
+│   ├── infra       OrderEntity, OrderItemEntity, SpringDataOrders, JpaOrderRepository, OrderEntityMapper,
+│   │               ProductInventory (talks to the product context)
+│   └── web         OrderController, request/response records, OrderApiMapper
+└── common          config (Clock, ShopProperties), exceptions, error handler, PageResponse
+```
+
+Dependencies between features point one way: `order -> product -> category`.
+A feature that needs something from another one defines a small port and the other feature implements it
+(`CategoryUsage`, `ProductUsage`, `CategoryCatalog`, `Inventory`).
+
+### Three models, two mappers
+
+| Model | Product | Order |
+|---|---|---|
+| API (DTO) | `ProductRequest`, `ProductResponse` | `CreateOrderRequest`, `OrderResponse` |
+| Domain | `Product` | `Order`, `OrderLine` |
+| Persistence | `ProductEntity` | `OrderEntity`, `OrderItemEntity` |
+| DTO <-> domain | `ProductApiMapper` | `OrderApiMapper` |
+| Domain <-> entity | `ProductEntityMapper` | `OrderEntityMapper` |
+
+Controllers call only application services, and no `@Entity` ever appears in a response.
+The API, the URLs and the JSON are exactly the same as in SIS 1 and Practice 4.
+
+### Tests
+
+| Test | Kind | Needs |
+|---|---|---|
+| `ProductTest`, `OrderTest` | domain rules, plain JUnit | nothing |
+| `ProductServiceTest` | service unit test with an in-memory repository | nothing |
+| `OrderServiceTest` | service unit test with Mockito mocks | nothing |
+| `ProductControllerTest`, `OrderControllerTest` | `@WebMvcTest` + MockMvc slice, service mocked | nothing |
+| `RepositoryIntegrationTest` | repositories and mappers against real PostgreSQL (Testcontainers) | Docker |
+| `ShopApiIntegrationTest` | the whole API end to end (Practice 4) | Docker |
+
+```bash
+./mvnw test
+```
