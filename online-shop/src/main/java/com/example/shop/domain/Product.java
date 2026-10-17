@@ -40,7 +40,7 @@ public class Product {
     @Column(nullable = false)
     private int stockQuantity;
 
-    // LAZY: the category is loaded only when it is needed (list queries fetch it with an entity graph)
+    // LAZY: the category is loaded only when it is needed (list pages load categories in batches)
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
