@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +36,10 @@ public class CategoryService {
         this.clock = clock;
     }
 
+    // Practice 5: the category list is the shop's "menu" — read on almost every page, changed rarely.
+    // It is cached under one key and the whole cache is dropped on any write (see the @CacheEvict methods),
+    // so a client never sees a stale list. The value is an immutable record DTO, never a JPA entity (slide 26).
+    @Cacheable("categories")
     @Transactional(readOnly = true)
     public List<CategoryResponse> findAll() {
         return categoryRepository.findAll(Sort.by("id")).stream()
@@ -46,6 +52,9 @@ public class CategoryService {
         return toResponse(getCategory(id));
     }
 
+    // Evict on every write so the cached list cannot go stale. allEntries clears the whole "categories"
+    // cache; it is cheap because the cache holds only this one list.
+    @CacheEvict(cacheNames = "categories", allEntries = true)
     public CategoryResponse create(CategoryRequest request) {
         ensureNameIsFree(request.name(), null);
 
@@ -60,6 +69,7 @@ public class CategoryService {
     }
 
     // No save() call: the category is MANAGED, so dirty checking writes the UPDATE at commit
+    @CacheEvict(cacheNames = "categories", allEntries = true)
     public CategoryResponse update(Long id, CategoryRequest request) {
         Category category = getCategory(id);
         ensureNameIsFree(request.name(), id);
@@ -69,6 +79,7 @@ public class CategoryService {
         return toResponse(category);
     }
 
+    @CacheEvict(cacheNames = "categories", allEntries = true)
     public void delete(Long id) {
         Category category = getCategory(id);
         long products = categoryUsage.countProducts(id);

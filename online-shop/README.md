@@ -1,4 +1,4 @@
-# Online Shop API — course project (SIS 1, Practice 4)
+# Online Shop API — course project (SIS 1, Practice 4, SIS 2, Practice 5)
 
 REST backend of a small online shop: categories, products with stock, and orders with a status life cycle.
 Spring Boot 4.1 · Java 17 · Maven · PostgreSQL · Spring Data JPA · Flyway.
@@ -176,7 +176,28 @@ The API, the URLs and the JSON are exactly the same as in SIS 1 and Practice 4.
 | `ProductControllerTest`, `OrderControllerTest` | `@WebMvcTest` + MockMvc slice, service mocked | nothing |
 | `RepositoryIntegrationTest` | repositories and mappers against real PostgreSQL (Testcontainers) | Docker |
 | `ShopApiIntegrationTest` | the whole API end to end (Practice 4) | Docker |
+| `CategoryCachingTest` | the Practice 5 cache: cached read, evict on write | nothing |
 
 ```bash
 ./mvnw test
 ```
+
+## Cross-cutting concerns (Practice 5)
+
+Behaviour that every service needs but no service should own is written once as an aspect, and the
+category list is cached. Both are built on the same Spring proxies that already give `@Transactional`
+its transactions (lecture weeks 8-9).
+
+| Concern | Where | What it does |
+|---|---|---|
+| Execution time + logging | `common/aop/ServiceTimingAspect` | `@Around` on every public method of any `@Service`; logs the signature and elapsed ms (never the arguments) |
+| Caching | `common/config/CacheConfig` + `CategoryService.findAll` | `@Cacheable("categories")` on the read, `@CacheEvict(allEntries = true)` on every write |
+
+- The cached value is an immutable `CategoryResponse` record, never a JPA entity.
+- Caffeine is the backend, bounded by `maximumSize` and `expireAfterWrite` in `application.properties`
+  (`spring.cache.caffeine.spec`), so the cache never grows forever.
+- `CategoryResponse` carries a `productCount`, which a product create or delete changes, so
+  `ProductService.create` and `ProductService.delete` evict the cache too (the product context already
+  depends on the category context, never the other way).
+- The timing log line (`...took N ms`) only appears for calls that arrive through the proxy —
+  a service method called from inside the same bean is not advised.

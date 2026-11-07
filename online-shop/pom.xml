@@ -51,6 +51,22 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Practice 5: AspectJ support for the service-layer timing aspect (Spring Boot 4 starter name) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+        </dependency>
+
+        <!-- Practice 5: caching abstraction (@Cacheable / @CacheEvict) with a Caffeine backend -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>

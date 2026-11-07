@@ -5,6 +5,7 @@ import java.time.Instant;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -60,6 +61,9 @@ public class ProductService {
         return load(id);
     }
 
+    // The cached category list carries a productCount per category, so adding a product makes it stale.
+    // Evict it here (the product context already depends on the category context, never the other way).
+    @CacheEvict(cacheNames = "categories", allEntries = true)
     public Product create(ProductDetails details) {
         CategoryRef category = category(details.categoryId());
         ensureSkuIsFree(details.sku(), null);
@@ -99,6 +103,7 @@ public class ProductService {
         return products.save(product);
     }
 
+    @CacheEvict(cacheNames = "categories", allEntries = true)
     public void delete(long id) {
         load(id);
         if (usage.isInActiveOrder(id)) {
