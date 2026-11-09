@@ -21,3 +21,4 @@
 Run the commands inside the `practice1-2` folder.
 
 Endpoint: `GET http://localhost:8080/greet/{name}`
+   Updated
