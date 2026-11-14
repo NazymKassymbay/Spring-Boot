@@ -2,6 +2,11 @@ package com.example.shop.product.web;
 
 import java.net.URI;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 import jakarta.validation.Valid;
 
 import org.springframework.data.domain.Pageable;
@@ -21,6 +26,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import com.example.shop.common.web.ErrorResponse;
 import com.example.shop.common.web.PageResponse;
 import com.example.shop.product.app.ProductService;
 import com.example.shop.product.domain.Product;
@@ -51,6 +57,10 @@ public class ProductController {
         return PageResponse.from(productService.findAll(categoryId, pageable).map(mapper::toResponse));
     }
 
+    @Operation(summary = "Get one product by id")
+    @ApiResponse(responseCode = "200", description = "The product")
+    @ApiResponse(responseCode = "404", description = "No product with that id",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping("/{id}")
     public ProductResponse findById(@PathVariable Long id) {
         return mapper.toResponse(productService.findById(id));

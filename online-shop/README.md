@@ -1,4 +1,4 @@
-# Online Shop API — course project (SIS 1, Practice 4, SIS 2, Practice 5)
+# Online Shop API — course project (SIS 1, Practice 4, SIS 2, Practice 5, Practice 6)
 
 REST backend of a small online shop: categories, products with stock, and orders with a status life cycle.
 Spring Boot 4.1 · Java 17 · Maven · PostgreSQL · Spring Data JPA · Flyway.
@@ -201,3 +201,38 @@ its transactions (lecture weeks 8-9).
   depends on the category context, never the other way).
 - The timing log line (`...took N ms`) only appears for calls that arrive through the proxy —
   a service method called from inside the same bean is not advised.
+
+## API docs and an external call (Practice 6)
+
+Two things from lecture week 10: the API is published as OpenAPI / Swagger UI, and the shop calls one
+external service with a timeout and a fallback.
+
+### Swagger UI
+
+springdoc generates the spec from the existing controllers and DTOs; `common/config/OpenApiConfig`
+adds the title, description and one `GroupedOpenApi` per version (`v1`). `@Operation` and `@ApiResponse`
+annotations document the endpoints and their error body (`ErrorResponse`) — see `ExchangeRateController`
+and `ProductController.findById`.
+
+| Page | URL |
+|---|---|
+| Swagger UI | `http://localhost:8080/swagger-ui.html` |
+| OpenAPI JSON | `http://localhost:8080/v3/api-docs` |
+
+### External exchange-rate call with timeout and fallback
+
+`GET /api/v1/exchange-rates/{code}` returns the shop currency (KZT) in another currency, fetched from an
+external service.
+
+| Piece | Where | Role |
+|---|---|---|
+| Timed client | `common/config/RestClientConfig` | a `RestClient` with connect and read timeouts, so a slow service fails fast |
+| Port / adapter | `exchange/app/ExchangeRateProvider` → `exchange/infra/HttpExchangeRateProvider` | the only class that knows the external HTTP API |
+| Resilience | `exchange/app/ExchangeRateService` | on any `RestClientException` it returns a configured fallback rate, marked `source: "FALLBACK"` |
+| Settings | `application.properties` (`app.exchange.*`) | base URL, timeouts and the last-known fallback rates |
+
+So the shop keeps answering even when the external service is slow or down: the response just carries
+`"source": "FALLBACK"` instead of `"LIVE"`. Proven by `HttpExchangeRateProviderTest` (the HTTP adapter
+against a `MockRestServiceServer`: a good response is parsed, a server error becomes an exception),
+`ExchangeRateServiceTest` (live vs fallback) and `ExchangeRateControllerTest` (mapping and validation) —
+none of them needs the network.
