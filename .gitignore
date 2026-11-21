@@ -1,0 +1,23 @@
+# Git backups
+.git-backup/
+.git-new-backup/
+*.bundle
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Build files
+target/
+build/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local Spring Boot configuration
+**/src/main/resources/application*.properties
+**/src/main/resources/application*.yml
+**/src/main/resources/application*.yaml
+http-client.env.json

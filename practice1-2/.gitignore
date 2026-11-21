@@ -1,0 +1,18 @@
+
+# Old Git history and backups
+.git-backup/
+*.bundle
+
+# IntelliJ IDEA
+.idea/
+**/.idea/
+*.iml
+
+# Build output
+**/target/
+**/build/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
