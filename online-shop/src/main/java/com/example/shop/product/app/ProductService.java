@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -103,6 +104,10 @@ public class ProductService {
         return products.save(product);
     }
 
+    // Practice 7 (lecture week 12, slide 15): defence in depth. SecurityConfig already allows DELETE
+    // /api/v1/products/** to ADMIN only; this method rule still holds if a new controller, a scheduled job or a
+    // listener ever calls the use case. It is a Spring proxy rule, so a this.delete() call would skip it.
+    @PreAuthorize("hasRole('ADMIN')")
     @CacheEvict(cacheNames = "categories", allEntries = true)
     public void delete(long id) {
         load(id);

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -38,6 +39,9 @@ import com.example.shop.product.domain.InsufficientStockException;
  * Slice test of the order web layer (week 8): controller, JSON, validation and error handler only.
  * The service is a Mockito mock.
  */
+// Practice 7: this slice checks mapping, JSON and validation only, so the security filters are off here.
+// The security rules (401 / 403 / 2xx) are proven with the real filter chain in SecurityIntegrationTest.
+@AutoConfigureMockMvc(addFilters = false)
 @WebMvcTest(OrderController.class)
 @Import({OrderApiMapper.class, AppConfig.class})
 @EnableConfigurationProperties(ShopProperties.class)

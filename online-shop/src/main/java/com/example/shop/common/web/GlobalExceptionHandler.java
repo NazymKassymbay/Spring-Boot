@@ -5,16 +5,26 @@ import java.time.Instant;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.core.PropertyReferenceException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -43,6 +53,38 @@ public class GlobalExceptionHandler {
 
     public GlobalExceptionHandler(Clock clock) {
         this.clock = clock;
+    }
+
+    // ---- security (Practice 7, lecture week 12) ----
+
+    // 401. Reached two ways: from the login endpoint (wrong password, unknown or disabled user) and from the
+    // filter chain's entry point (no token, bad token), which hands its exception to this advice so every
+    // error keeps one body. Login failures share ONE message, so valid usernames cannot be guessed (slide 10).
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex, HttpServletRequest request,
+                                                              HttpServletResponse response) {
+        String message;
+        if (ex instanceof InvalidBearerTokenException) {
+            message = "Invalid or expired token";
+        } else if (ex instanceof InsufficientAuthenticationException
+                || ex instanceof AuthenticationCredentialsNotFoundException) {
+            message = "Authentication is required: send Authorization: Bearer <token>";
+        } else {
+            message = "Invalid username or password";
+        }
+        return unauthorized(message, request, response);
+    }
+
+    // 403: a known user without the needed role, from the filter chain or from @PreAuthorize on a service
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request,
+                                                            HttpServletResponse response) {
+        Authentication current = SecurityContextHolder.getContext().getAuthentication();
+        if (current == null || current instanceof AnonymousAuthenticationToken) {
+            // Nobody is signed in, so the honest answer is "who are you?", not "no"
+            return unauthorized("Authentication is required: send Authorization: Bearer <token>", request, response);
+        }
+        return build(HttpStatus.FORBIDDEN, "You do not have permission to do this", request, List.of());
     }
 
     // ---- domain errors ----
@@ -185,6 +227,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error on {} {}", request.getMethod(), request.getRequestURI(), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected server error", request, List.of());
+    }
+
+    // A 401 must tell the client how to authenticate (RFC 9110). The filter chain's entry point already set a
+    // detailed WWW-Authenticate header; a 401 raised inside MVC (the login endpoint) gets the plain scheme.
+    private ResponseEntity<ErrorResponse> unauthorized(String message, HttpServletRequest request,
+                                                       HttpServletResponse response) {
+        ResponseEntity<ErrorResponse> body = build(HttpStatus.UNAUTHORIZED, message, request, List.of());
+        if (response.containsHeader(HttpHeaders.WWW_AUTHENTICATE)) {
+            return body;
+        }
+        return ResponseEntity.status(body.getStatusCode())
+                .headers(body.getHeaders())
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(body.getBody());
     }
 
     private FieldViolation toViolation(FieldError error) {

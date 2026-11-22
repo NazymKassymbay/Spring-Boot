@@ -1,6 +1,8 @@
 package com.example.shop;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -9,6 +11,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +28,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -40,16 +50,64 @@ class ShopApiIntegrationTest {
     @ServiceConnection
     static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
 
-    @Autowired
+    // Practice 7: the API is now secured, and this class tests the business flow, not the security rules
+    // (those are in SecurityIntegrationTest). So every request here is sent by an ADMIN: jwt() puts a
+    // JwtAuthenticationToken straight into the security context (lecture week 12, slide 16).
     private MockMvc mockMvc;
 
     @Autowired
+    private WebApplicationContext context;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void mockMvcActingAsAdmin() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(context)
+                .apply(springSecurity())
+                .defaultRequest(get("/").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .build();
+    }
 
     // Every test starts with empty tables and ids from 1
     @BeforeEach
     void cleanDatabase() {
         jdbcTemplate.execute("TRUNCATE order_items, orders, products, categories RESTART IDENTITY CASCADE");
+    }
+
+    // SIS 3: "OpenAPI documentation of the whole API, incl. errors". Reads the generated spec of group v1 and
+    // checks that no endpoint was forgotten: each one has a summary, and each one that takes input (parameters
+    // or a body) documents at least one 4xx with the shared ErrorResponse body. GET /categories takes no input,
+    // so it has nothing a client could get wrong. A new endpoint without annotations makes this test fail.
+    @Test
+    void everyEndpointIsDocumentedWithItsErrors() throws Exception {
+        String spec = mockMvc.perform(get("/v3/api-docs/v1"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        List<Map<String, Object>> operations = JsonPath.read(spec, "$.paths.*.*");
+        assertThat(operations).hasSize(19);   // categories 5, products 6, orders 5, exchange rates 1, auth 2
+
+        assertThat(operations).allSatisfy(operation -> {
+            assertThat(operation).containsKey("summary");
+            if (!operation.containsKey("parameters") && !operation.containsKey("requestBody")) {
+                return;
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> responses = (Map<String, Object>) operation.get("responses");
+            assertThat(responses.keySet())
+                    .as("error statuses of %s", operation.get("operationId"))
+                    .anyMatch(code -> code.startsWith("4"));
+        });
+        assertThat(spec).contains("#/components/schemas/ErrorResponse");
+
+        // Practice 7: the security rules are documented too (meta-annotations @ApiAdminOnly / @ApiSignedIn)
+        assertThat(JsonPath.<Map<String, Object>>read(spec, "$.paths['/api/v1/products/{id}'].delete.responses"))
+                .containsKeys("204", "401", "403");
+        assertThat(JsonPath.<Map<String, Object>>read(spec, "$.paths['/api/v1/orders'].post.responses"))
+                .containsKeys("201", "401");
+        assertThat(JsonPath.<List<Object>>read(spec, "$.paths['/api/v1/auth/login'].post.security")).isEmpty();
+        assertThat(JsonPath.<String>read(spec, "$.components.securitySchemes.bearer-jwt.scheme")).isEqualTo("bearer");
     }
 
     @Test

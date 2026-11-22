@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
@@ -41,6 +42,9 @@ import com.example.shop.product.domain.Product;
  * Slice test of the web layer (week 8): only the controller, the JSON conversion, validation and
  * the error handler are started. The service is a Mockito mock, so there is no database here.
  */
+// Practice 7: this slice checks mapping, JSON and validation only, so the security filters are off here.
+// The security rules (401 / 403 / 2xx) are proven with the real filter chain in SecurityIntegrationTest.
+@AutoConfigureMockMvc(addFilters = false)
 @WebMvcTest(ProductController.class)
 @Import({ProductApiMapper.class, AppConfig.class})          // the mapper and the Clock for the error handler
 @EnableConfigurationProperties(ShopProperties.class)         // currency for the response

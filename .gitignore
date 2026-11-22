@@ -15,9 +15,12 @@ build/
 .env
 .env.*
 !.env.example
+# Practice 7: JWT signing keys and any other key material
+*.pem
+*.key
 
-# Local Spring Boot configuration
-**/src/main/resources/application*.properties
-**/src/main/resources/application*.yml
-**/src/main/resources/application*.yaml
+# Spring Boot configuration (application*.properties) IS committed: the project cannot start without it.
+# It holds no secrets - passwords and JWT keys come from environment variables (DB_PASSWORD, JWT_PRIVATE_KEY).
+# Keep real secrets in .env or http-client.private.env.json, which stay ignored.
 http-client.env.json
+http-client.private.env.json

@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -24,6 +25,9 @@ import com.example.shop.exchange.app.ExchangeRateService;
  * Practice 6: web-layer slice of the exchange-rate endpoint. The service is mocked, so this checks
  * mapping, the "source" field and validation — not the external call.
  */
+// Practice 7: this slice checks mapping, JSON and validation only, so the security filters are off here.
+// The security rules (401 / 403 / 2xx) are proven with the real filter chain in SecurityIntegrationTest.
+@AutoConfigureMockMvc(addFilters = false)
 @WebMvcTest(ExchangeRateController.class)
 @Import(AppConfig.class)   // Clock for the error handler
 class ExchangeRateControllerTest {
